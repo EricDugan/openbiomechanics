@@ -13,6 +13,16 @@ Figures are written to `examples/figures/` (Agg backend, `savefig` only).
 | [`03_join_fullsig.py`](03_join_fullsig.py) | Joins two full-signal time-series tables on `session_pitch` + `time`. | **Yes** -- full-signal tables are not in git. |
 | [`04_hp_assessment.py`](04_hp_assessment.py) | Loads the high-performance force-plate table, plots the CMJ jump-height distribution. | No -- `hp_obp.csv` ships in git. |
 
+## R versions
+
+Each script has a base-R port (no packages required), sharing
+[`obp_helpers.R`](obp_helpers.R) (the R counterpart of the `obp` loaders):
+`01_explore_poi.R`, `02_read_c3d.R` (includes a minimal Intel/float C3D reader
+instead of ezc3d), `03_join_fullsig.R` (reads the `.zip` tables directly),
+`04_hp_assessment.R`, and `05_benchmark_shoulder_load.R`/`.py` (Tier A benchmark:
+shoulder/elbow load vs. velocity). Run from anywhere, e.g.
+`Rscript examples/01_explore_poi.R`; R figures are written with an `_r` suffix.
+
 ## Running
 
 ```bash
