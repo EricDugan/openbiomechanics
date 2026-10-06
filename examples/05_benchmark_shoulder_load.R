@@ -13,9 +13,10 @@
 #   fp_100 = foot plant (100% BW). Pitches whose ball release precedes the start
 #   event (or lack one) are dropped as bad tags.
 # * POI shoulder_internal_rotation_moment is the peak of
-#   shoulder_upper_arm_moment_z (upper-arm long-axis frame). The trunk-frame
-#   equivalent (shoulder_thorax_moment_z) is also computed; the two are NOT
-#   interchangeable (r ~ 0.63).
+#   shoulder_upper_arm_moment_z (upper-arm long-axis frame; + = internal rotation).
+# * shoulder_thorax_moment_z is NOT internal rotation: per the pitching README,
+#   the thorax-frame z moment is shoulder HORIZONTAL ADDUCTION (+) / abduction (-)
+#   (r ~ 0.63 with the IR moment). Reported here as shoulder_hadd_thorax.
 # * Moments are normalised as 100 * Nm / (mass_kg * 9.81 * height_m) -> %BW.H.
 # * Per-pitch values are averaged within pitcher before summarising.
 #
@@ -72,7 +73,7 @@ find_table <- function(name) {
   quit(save = "no", status = 0)
 }
 
-# Peak shoulder IR moment (thorax and upper-arm frame) per pitch, start -> BR.
+# Peak shoulder IR (upper-arm z) and horizontal-adduction (thorax z) moments per pitch.
 trunk_frame_peaks <- function(csv, start) {
   start_col <- paste0(start, "_time")
   fm <- read_cols(csv, c("session_pitch", "time", start_col, "BR_time",
@@ -83,7 +84,7 @@ trunk_frame_peaks <- function(csv, start) {
   fm  <- fm[fm$time >= fm[[start_col]] & fm$time <= fm$BR_time, ]
   data.frame(
     session_pitch       = sort(unique(fm$session_pitch)),
-    shoulder_ir_trunk_nm = as.numeric(tapply(fm$shoulder_thorax_moment_z,
+    shoulder_hadd_thorax_nm = as.numeric(tapply(fm$shoulder_thorax_moment_z,
                                              fm$session_pitch, max)),
     shoulder_ir_uarm_nm  = as.numeric(tapply(fm$shoulder_upper_arm_moment_z,
                                              fm$session_pitch, max))
@@ -109,11 +110,11 @@ cat(sprintf("POI vs recomputed upper-arm peak: r = %.4f  (n=%d)\n",
             cor(chk$shoulder_internal_rotation_moment, chk$shoulder_ir_uarm_nm), nrow(chk)))
 cat("Window start:", start, "\n")
 cat(sprintf("Pitches w/o a usable event window (no trunk-frame value): %d of %d\n\n",
-            sum(is.na(pitch$shoulder_ir_trunk_nm)), nrow(pitch)))
+            sum(is.na(pitch$shoulder_hadd_thorax_nm)), nrow(pitch)))
 
 norm <- 100 / (pitch$session_mass_kg * G * pitch$session_height_m)
 pitch$shoulder_ir_poi_bwh   <- pitch$shoulder_internal_rotation_moment * norm
-pitch$shoulder_ir_trunk_bwh <- pitch$shoulder_ir_trunk_nm * norm
+pitch$shoulder_hadd_thorax_bwh <- pitch$shoulder_hadd_thorax_nm * norm
 pitch$elbow_varus_bwh       <- pitch$elbow_varus_moment * norm
 
 # ---- one row per pitcher-session ------------------------------------------
@@ -121,7 +122,7 @@ means <- aggregate(
   cbind(age_yr = age_yrs, height_m = session_height_m, mass_kg = session_mass_kg,
         velo_mph = pitch_speed_mph,
         shoulder_ir_poi_nm = shoulder_internal_rotation_moment,
-        shoulder_ir_poi_bwh, shoulder_ir_trunk_bwh, elbow_varus_bwh) ~ user + session,
+        shoulder_ir_poi_bwh, shoulder_hadd_thorax_bwh, elbow_varus_bwh) ~ user + session,
   data = pitch, FUN = function(x) mean(x, na.rm = TRUE), na.action = na.pass)
 info <- aggregate(session_pitch ~ user + session, data = pitch, FUN = length)
 names(info)[3] <- "n_pitches"
@@ -147,7 +148,7 @@ lv <- aggregate(cbind(age = age_yr, velo = velo_mph) ~ level, pitcher, mean)
 lv$n <- as.integer(table(pitcher$level)[lv$level])
 print(format(lv[, c("level", "n", "age", "velo")], digits = 3), row.names = FALSE)
 
-outcomes <- c("shoulder_ir_poi_bwh", "shoulder_ir_trunk_bwh", "elbow_varus_bwh")
+outcomes <- c("shoulder_ir_poi_bwh", "shoulder_hadd_thorax_bwh", "elbow_varus_bwh")
 pitcher$velo_band <- cut(pitcher$velo_mph, BANDS, right = FALSE)
 
 cat("\nMean load by velocity band (%BW.H):\n")

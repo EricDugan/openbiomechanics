@@ -11,10 +11,10 @@ Notes on definitions
   closest to "stride foot contact") or ``fp_100`` = foot plant (100% BW).
   Pitches whose ball release precedes the start event are dropped as bad tags.
 * The POI ``shoulder_internal_rotation_moment`` is the peak of
-  ``shoulder_upper_arm_moment_z`` (upper-arm long-axis frame) in that window.
-  This script also computes the trunk-frame equivalent from
-  ``shoulder_thorax_moment_z`` -- the two are NOT interchangeable (r ~ 0.63).
-  Pick the one matching the frame your comparison study resolves moments in.
+  ``shoulder_upper_arm_moment_z`` (upper-arm long-axis frame; + = internal rotation).
+* ``shoulder_thorax_moment_z`` is NOT internal rotation: per the pitching README,
+  the thorax-frame z moment is shoulder HORIZONTAL ADDUCTION (+) / abduction (-)
+  (r ~ 0.63 with the IR moment). It is reported here as ``shoulder_hadd_thorax``.
 * Moments are normalised as 100 * Nm / (mass_kg * 9.81 * height_m) -> %BW.H.
 * Per-pitch values are averaged within pitcher before summarising.
 
@@ -54,7 +54,7 @@ def find_table(name):
 
 
 def trunk_frame_peaks(path, start):
-    """Peak shoulder IR moment (thorax and upper-arm frame) per pitch, start -> BR."""
+    """Peak shoulder IR (upper-arm z) and horizontal-adduction (thorax z) moments per pitch."""
     start_col = f"{start}_time"
     cols = ["session_pitch", "time", start_col, "BR_time",
             "shoulder_thorax_moment_z", "shoulder_upper_arm_moment_z"]
@@ -68,7 +68,7 @@ def trunk_frame_peaks(path, start):
         .groupby("session_pitch")[["shoulder_thorax_moment_z",
                                    "shoulder_upper_arm_moment_z"]]
         .max()
-        .rename(columns={"shoulder_thorax_moment_z": "shoulder_ir_trunk_nm",
+        .rename(columns={"shoulder_thorax_moment_z": "shoulder_hadd_thorax_nm",
                          "shoulder_upper_arm_moment_z": "shoulder_ir_uarm_nm"})
     )
     return peaks.reset_index()
@@ -105,11 +105,11 @@ def main():
           f"{chk.corr().iloc[0, 1]:.4f}  (n={len(chk)})")
     print(f"Window start: {args.start}")
     print(f"Pitches w/o a usable event window (no trunk-frame value): "
-          f"{pitch['shoulder_ir_trunk_nm'].isna().sum()} of {len(pitch)}\n")
+          f"{pitch['shoulder_hadd_thorax_nm'].isna().sum()} of {len(pitch)}\n")
 
     norm = 100.0 / (pitch["session_mass_kg"] * G * pitch["session_height_m"])
     pitch["shoulder_ir_poi_bwh"] = pitch["shoulder_internal_rotation_moment"] * norm
-    pitch["shoulder_ir_trunk_bwh"] = pitch["shoulder_ir_trunk_nm"] * norm
+    pitch["shoulder_hadd_thorax_bwh"] = pitch["shoulder_hadd_thorax_nm"] * norm
     pitch["elbow_varus_bwh"] = pitch["elbow_varus_moment"] * norm
 
     # One row per pitcher-session: average throws within pitcher first.
@@ -124,7 +124,7 @@ def main():
              velo_mph=("pitch_speed_mph", "mean"),
              shoulder_ir_poi_nm=("shoulder_internal_rotation_moment", "mean"),
              shoulder_ir_poi_bwh=("shoulder_ir_poi_bwh", "mean"),
-             shoulder_ir_trunk_bwh=("shoulder_ir_trunk_bwh", "mean"),
+             shoulder_hadd_thorax_bwh=("shoulder_hadd_thorax_bwh", "mean"),
              elbow_varus_bwh=("elbow_varus_bwh", "mean"))
         .reset_index()
     )
@@ -143,7 +143,7 @@ def main():
           .agg(n=("user", "size"), age=("age_yr", "mean"),
                velo=("velo_mph", "mean")).round(1).to_string())
 
-    outcomes = ["shoulder_ir_poi_bwh", "shoulder_ir_trunk_bwh", "elbow_varus_bwh"]
+    outcomes = ["shoulder_ir_poi_bwh", "shoulder_hadd_thorax_bwh", "elbow_varus_bwh"]
     pitcher["velo_band"] = pd.cut(pitcher["velo_mph"], BANDS, right=False)
     print("\nMean load by velocity band (%BW.H):")
     print(pitcher.groupby("velo_band", observed=True)[outcomes]
